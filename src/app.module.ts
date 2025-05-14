@@ -7,6 +7,9 @@ import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { User } from './user/user.entity';
 
+import { ClientsModule, Transport } from '@nestjs/microservices';
+import { MailService } from './mail/mail.service';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -25,3 +28,23 @@ import { User } from './user/user.entity';
   ],
 })
 export class AppModule {}
+
+@Module({
+  imports: [
+    ClientsModule.register([
+      {
+        name: 'MAIL_SERVICE', // Servis adı
+        transport: Transport.RMQ,
+        options: {
+          urls: ['amqp://localhost:5672'], // RabbitMQ bağlantısı
+          queue: 'email_queue', // Kuyruk adı
+          queueOptions: {
+            durable: false,
+          },
+        },
+      },
+    ]),
+  ],
+  providers: [MailService],
+})
+export class MailModule {}

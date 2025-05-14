@@ -3,19 +3,25 @@ import {
   BadRequestException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
+import { ClientProxy } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '../user/user.entity';
 import { Request } from 'express';
+import * as crypto from 'crypto';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AuthService {
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
+    private readonly mailService: MailService,
   ) {}
 
   async register(
@@ -31,12 +37,15 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+
     const user = this.userRepository.create({
       email,
       password: hashedPassword,
       name,
       lastLoginIp: req.ip,
       userAgent: req.headers['user-agent'] || '',
+      emailVerificationToken,
     });
 
     await this.userRepository.save(user);
@@ -45,7 +54,11 @@ export class AuthService {
     user.refreshToken = await bcrypt.hash(tokens.refreshToken, 10);
     await this.userRepository.save(user);
 
-    return tokens;
+    // E-posta gönderme kısmı burada yapılacak (postayı göndermek için)
+    // Bu aşamada postayı göndermek için bir servis yazacağız.
+    await this.mailService.sendVerificationEmail(email, emailVerificationToken);
+
+    return { message: 'Kayıt başarılı. E-posta adresinizi doğrulamak için gelen kutunuzu kontrol edin.' };
   }
 
   async login(email: string, password: string, req: Request) {
@@ -130,5 +143,15 @@ export class AuthService {
     await this.userRepository.save(user);
   
     return { message: 'Çıkış başarılı.' };
+  }
+
+  async verifyEmail(token: string) {
+    const user = await this.userRepository.findOne({ where: { emailVerificationToken: token } });
+    if (!user) throw new BadRequestException('Geçersiz veya süresi dolmuş token.');
+  
+    user.isEmailVerified = true;
+    user.emailVerificationToken = null;
+    await this.userRepository.save(user);
+    return { message: 'E-posta doğrulandı.' };
   }
 }

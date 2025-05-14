@@ -30,4 +30,9 @@ export class User {
   @Column({ type: 'text', nullable: true })
   refreshToken: string | null;
   
+  @Column({ default: false })
+  isEmailVerified: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  emailVerificationToken: string | null;
 }

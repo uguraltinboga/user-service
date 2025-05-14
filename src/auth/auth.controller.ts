@@ -9,6 +9,7 @@ import {
 import { AuthService } from './auth.service';
 import { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
+import { Query } from '@nestjs/common';
 
 @Controller('auth')
 export class AuthController {
@@ -49,5 +50,10 @@ export class AuthController {
   @Post('refresh')
   refresh(@Body('refreshToken') refreshToken: string) {
     return this.authService.refreshTokens(refreshToken);
+  }
+
+  @Get('verify-email')
+  async verifyEmail(@Query('token') token: string) {
+    return this.authService.verifyEmail(token);
   }
 }
